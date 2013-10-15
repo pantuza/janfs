@@ -1,4 +1,4 @@
 janfs
 =====
 
-Just another network file system
+Just Another Network File System : )
