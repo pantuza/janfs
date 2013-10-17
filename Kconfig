@@ -1,0 +1,16 @@
+config JANFS_FS
+	tristate "Just Another Network File System support (JANFS)"
+	select DNS_RESOLVER
+	help
+	  If you say Y here, you will get an experimental simple network file
+	  system driver. It currently only supports basic file operations.
+
+	  If unsure, say N.
+
+config JANFS_DEBUG
+	bool "JANFS dynamic debugging"
+	depends on JANFS_FS
+	help
+	  Say Y here to make runtime controllable debugging messages appear.
+
+	  If unsure, say N.
