@@ -11,11 +11,22 @@
 #include <linux/fs.h>
 #include <linux/backing-dev.h>
 #include <asm/uaccess.h>
+
+#include "socket.h"
 #include "janfs.h"
 
 //-----------------------------------------------------------------------------
 static const struct super_operations janfs_ops;
 static const struct inode_operations janfs_dir_inode_operations;
+
+static char *remote_addr = "255.255.255.255";
+module_param(remote_addr, charp, 0);
+MODULE_PARM_DESC(remote_addr, "A remote IP address to connect.");
+
+static int remote_port = 0;
+module_param(remote_port, int, 0);
+MODULE_PARAM_DESC(remote_port, "A remote port to connect.");
+
 
 //-----------------------------------------------------------------------------
 /*
@@ -48,7 +59,10 @@ static const struct super_operations ramfs_ops = {
 	.show_options	= generic_show_options,
 };
 
-//-----------------------------------------------------------------------------
+/*
+ * The filesystem registry structure. Holds the name of the filesystem type
+ * and a function that can construct a superblock.
+ */
 static struct file_system_type janfs_fstype = {
 	.name		= "janfs",
 	.mount		= janfs_mount,
@@ -60,8 +74,6 @@ static struct file_system_type janfs_fstype = {
 struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	/// \todo Substituir pela inicializacacao correta
-
 	return mount_nodev(fs_type, flags, data, janfs_fill_super);
 }
 
@@ -73,20 +85,36 @@ int janfs_fill_super(struct super_block *sb, void *data, int silent)
 	return -1;  // error
 }
 
-
-
-
-
-
-
-
-
-
-
+//-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+/* 
+ * Attaches the new filesystem to the kernel.
+ */
 static int __init init_janfs(void)
 {
+	int ret = 0;
+
+	// Connect to specified address
+	ret = create_client_socket();
+	if (ret) {
+		printk(KERN_ERR "Could not create client socket.");
+		return ret;
+	}
+
+	ret = connect_server(remote_addr, remote_port);
+	if (ret) {
+		printk(KERN_ERR "Could not connect to remote host.");
+	}
+
 	return register_filesystem(&janfs_fstype);
 }
 
