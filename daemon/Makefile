@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 
 # Janfs Makefile
 #
@@ -25,12 +24,3 @@ daemon: daemon.c
 clean:
 	@rm -rvf *.o
 	@rm -rvf $(daemon_out)
-=======
-#
-# Makefile for JANFS client.
-#
-
-obj-$(CONFIG_JANFS_FS)  := janfs.o
-
-janfs-objs += client_socket.o
->>>>>>> b4f7f982116475be1a3d0f6169932d941f99a756
