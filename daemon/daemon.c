@@ -95,6 +95,8 @@ int main ()
 
     /* Daemon task loop */
     int x = 0;
+    // TODO: Insert here call to listener
+
     while (true) {
         syslog(LOG_INFO, "hello nurse at %d", x++);
         sleep(5);
