@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
-#include <stdbool.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -93,11 +92,14 @@ int main ()
     syslog(LOG_NOTICE, "Daemon started by User %d", getuid());
 
 
-    /* Daemon task loop */
-    int x = 0;
+    /* Daemon task - TCP socket listener */
+    tcp_listener();
+
+
+
     // TODO: Insert here call to listener
 
-    while (true) {
+    while (1) {
         syslog(LOG_INFO, "hello nurse at %d", x++);
         sleep(5);
     }
