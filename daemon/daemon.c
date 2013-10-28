@@ -92,17 +92,8 @@ int main ()
     syslog(LOG_NOTICE, "Daemon started by User %d", getuid());
 
 
-    /* Daemon task - TCP socket listener */
+    /* Daemon task - TCP socket listener and daemon loop */
     tcp_listener();
-
-
-
-    // TODO: Insert here call to listener
-
-    while (1) {
-        syslog(LOG_INFO, "hello nurse at %d", x++);
-        sleep(5);
-    }
 
     exit(EXIT_SUCCESS);
 }
