@@ -82,7 +82,7 @@ int main ()
 
 
     do_fork(&pid);
-    umask(0);  // Change file mode mask
+    umask(0);  /* Change file mode mask */
     start_log();
     do_session(&sid);
     change_dir();
