@@ -89,14 +89,14 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	ret = create_client_socket();
 	if (ret) {
 		printk(KERN_ERR "Could not create client socket.\n");
-		return ret;
+		return NULL;
 	}
 
-   // Connect to specified address
+	// Connect to specified address
 	ret = connect_server(remote_addr, remote_port);
 	if (ret) {
 		printk(KERN_ERR "Could not connect to remote host.\n");
-      return NULL;
+		return NULL;
 	}
 
 	return mount_nodev(fs_type, flags, data, janfs_fill_super);
