@@ -83,23 +83,52 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int ret = 0;
+	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 
 	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_addr, remote_port);
 
 	ret = create_client_socket();
 	if (ret) {
 		printk(KERN_ERR "Could not create client socket.\n");
-		return NULL;
+		goto out_err;
 	}
 
 	// Connect to specified address
 	ret = connect_server(remote_addr, remote_port);
 	if (ret) {
 		printk(KERN_ERR "Could not connect to remote host.\n");
-		return NULL;
+		goto out_err;
 	}
 
+	// Sends mount command
+
+	// Waits for response
+   
+	// Fills superblock with information received from server
+
+   /** INI - Test while not receiving **
+	struct super_block sb = {
+		.s_blocksize_bits = ;
+		.s_blocksize      = ;
+		.s_maxbytes       = ;
+		.s_type           = ;
+		.s_flags          = ;
+		.s_magic          = 0xafafafaf;
+		.s_root           = ;
+		.s_inodes         = ; // All inodes
+		.s_files          = ; // Files
+      .s_bdev           = ; // struct block_device*
+		.s_bdi            = ; // struct backing_dev_info*
+		.s_id             = ; // char[32] - Informational name
+		.s_uuid           = ; // u8[16]   - UUID
+		.s_fs_info        = ; // void*    - Filesystem private info
+	};
+   /** END - Test while not receiving **/
+
 	return mount_nodev(fs_type, flags, data, janfs_fill_super);
+
+out_err:
+	return ERR_PTR(-ENOMEM);
 }
 
 //-----------------------------------------------------------------------------
