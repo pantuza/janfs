@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "listener.h"
+
 
 #define DAEMON_NAME "janfsd"
 

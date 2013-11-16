@@ -5,10 +5,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <strings.h>
 
-
-#define BUFFER_SIZE 1024
-#define SRV_PORT 5000
+#include "listener.h"
 
 
 void fill_values(struct sockaddr_in *addr)
@@ -27,7 +26,7 @@ void tcp_listener()
 
     char clibuff[BUFFER_SIZE];
 
-    sockfd = socket(AF_INET, AF_STREAM, 0);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     fill_values(&srvaddr);
     bind(sockfd, (struct sockaddr *) &srvaddr, sizeof(srvaddr));
 
