@@ -13,16 +13,16 @@ CFLAGS := -std=gnu99 -Wall -O3
 
 
 all: daemon
-	@echo -e "Building entire project.."
-
 
 daemon: daemon.c listener.o
-	@echo -e "Building daemon janfsd.."
-	$(CC) $< $(CFLAGS) -o $(daemon_out) 
+	@echo -e "\n== Building and linking daemon janfsd ==\n"
+	$(CC) $^ $(CFLAGS) -o $(daemon_out) 
 
 %.o: %.c
+	@echo -e "\n== Building Objects ==\n"
 	$(CC) -c $^ -o $@ $(CFLAGS)
 
 clean:
+	@echo -e "\n== Cleaning the Project ==\n"
 	@rm -rvf *.o
 	@rm -rvf $(daemon_out)
