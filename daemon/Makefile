@@ -16,10 +16,12 @@ all: daemon
 	@echo -e "Building entire project.."
 
 
-daemon: daemon.c
+daemon: daemon.c listener.o
 	@echo -e "Building daemon janfsd.."
 	$(CC) $< $(CFLAGS) -o $(daemon_out) 
 
+%.o: %.c
+	$(CC) -c $^ -o $@ $(CFLAGS)
 
 clean:
 	@rm -rvf *.o
