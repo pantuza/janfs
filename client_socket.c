@@ -6,27 +6,28 @@
 
 #include "socket.h"
 
-/*
- * Local functions prototypes.
- */
+//-----------------------------------------------------------------------------
+// Local functions prototypes.
+//-----------------------------------------------------------------------------
+
+// Returns a 4-byte integer address to connect to.
 static uint32_t to_address(char *address);
 
-/*
- * Module client socket.
- */
+//-----------------------------------------------------------------------------
+// Local variables
+//-----------------------------------------------------------------------------
 static struct socket *client_socket;
 
 
 
 
-/*
- * Returns a 4-byte integer address to connect to.
- */
+
+//-----------------------------------------------------------------------------
 uint32_t to_address(char *address)
 {
 	unsigned int p1, p2, p3, p4;
 
-   if (sscanf(address,"%u.%u.%u.%u",&p1,&p2,&p3,&p4) != 4) {
+	if (sscanf(address,"%u.%u.%u.%u",&p1,&p2,&p3,&p4) != 4) {
 		printk(KERN_ERR "Error reading address %s.", address);
 		return 0;
 	}
@@ -34,16 +35,14 @@ uint32_t to_address(char *address)
 	return ((p1 << 24) + (p2 << 16) + (p3 << 8) + p4);
 }
 
-/*
- * Creates the client socket.
- */
+//-----------------------------------------------------------------------------
 int create_client_socket()
 {
 	int ret;
 
 	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &client_socket);
 	if (ret < 0) {
-      printk(KERN_ERR "Error creating client_socket.");
+		printk(KERN_ERR "Error creating client_socket.");
 	}
 
 	return 0;
@@ -62,22 +61,20 @@ int create_client_socket()
 */
 }
 
-/*
- * Connects to remote host.
- */
+//-----------------------------------------------------------------------------
 int connect_server(char *address, int port)
 {
 	struct sockaddr_in saddr;
-   int ret;
+	int ret;
 
 	memset(&saddr, 0, sizeof(saddr));	
 	saddr.sin_family          = AF_INET;
-   saddr.sin_port            = htons(port);
+	saddr.sin_port            = htons(port);
 	saddr.sin_addr.s_addr     = htonl(to_address(address));
 	client_socket->sk->sk_allocation = GFP_NOFS;
 
 	ret = client_socket->ops->connect(client_socket, (struct sockaddr *)&saddr, sizeof(saddr), O_RDWR);
-   if (ret < 0) {
+	if (ret < 0) {
 		printk(KERN_ERR "Error connecting to server.");
 		return ret;
 	}
@@ -85,21 +82,18 @@ int connect_server(char *address, int port)
 	return 0;
 }
 
-/*
- * Closes the client socket.
- */
+//-----------------------------------------------------------------------------
 void close_client_socket()
 {
 	if (client_socket && client_socket->ops) {
-      sock_release(client_socket);
+		printk("Closing client socket.\n");
+		sock_release(client_socket);
 		//client_socket->ops->shutdown(client_socket, 0);
 		//client_socket->ops->release(client_socket);
 	}
 }
 
-/*
- * Sends a message to server.
- */
+//-----------------------------------------------------------------------------
 int send_srv_msg(char *msg, uint32_t len)
 {
 	int ret;
@@ -128,9 +122,7 @@ int send_srv_msg(char *msg, uint32_t len)
 	return ret;
 }
 
-/*
- * Receives a message from server.
- */
+//-----------------------------------------------------------------------------
 int recv_srv_msg(char *buffer, uint32_t len)
 {
 	int ret;
@@ -158,6 +150,9 @@ int recv_srv_msg(char *buffer, uint32_t len)
 
 	return ret;
 }
+
+
+
 
 
 //-----------------------------------------------------------------------------

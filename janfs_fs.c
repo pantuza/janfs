@@ -17,6 +17,7 @@
 #include <linux/backing-dev.h>
 #include <asm/uaccess.h>
 #include <linux/pagemap.h>
+#include <linux/slab.h>
 
 #include "socket.h"
 #include "janfs_fs.h"
@@ -48,8 +49,7 @@ static const struct inode_operations janfs_dir_inode_operations;
 static int janfs_statfs(struct dentry *dentry, struct kstatfs *buf);
 static struct inode *janfs_get_inode(struct super_block *sb,
 				const struct inode *dir, umode_t mode, dev_t dev);
-
-//-----------------------------------------------------------------------------
+static void janfs_kill_sb(struct super_block *sb);
 
 
 
@@ -117,26 +117,40 @@ const struct address_space_operations janfs_aops = {
 static struct file_system_type janfs_fstype = {
 	.name		= "janfs",
 	.mount		= janfs_mount,
-//	.kill_sb	= janfs_kill_sb,
+	.kill_sb	= janfs_kill_sb,
 	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 
+//-----------------------------------------------------------------------------
+// Read the superblock
+//-----------------------------------------------------------------------------
+int janfs_fill_super(struct super_block *sb, void *data, int silent)
+{
+	struct inode * inode = NULL;
 
+	// Fill in the superblock
+	sb->s_blocksize = PAGE_CACHE_SIZE;
+	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
+	sb->s_magic = JANFS_MAGIC;
+	sb->s_op = &janfs_ops;
 
+	inode = janfs_get_inode(sb, NULL, S_IFDIR | 0755, 0);
+	sb->s_root = d_make_root(inode);
+	if (!sb->s_root)
+		return -ENOMEM;
 
-
-
-
-
+	return 0;
+}
 
 //-----------------------------------------------------------------------------
-//
+// Mount the filesystem
 //-----------------------------------------------------------------------------
 struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int ret = 0;
+	char buf[255];
 //	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 
 	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_addr, remote_port);
@@ -154,6 +168,15 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 		goto out_err;
 	}
 
+	if (send_srv_msg("LOOKUP", strlen("LOOKUP")+1) != (strlen("LOOKUP")+1)) {
+		printk(KERN_ERR "Error sending message to server.\n");
+		goto out_err;
+	}
+
+	if (recv_srv_msg(buf, 255) > 0) {
+		printk("Received message from server (%s).\n", buf);
+	}
+
 	// Sends mount command
 
 	// Waits for response
@@ -167,26 +190,17 @@ out_err:
 	return ERR_PTR(-ENOMEM);
 }
 
+
 //-----------------------------------------------------------------------------
-//
+// Mount the filesystem
 //-----------------------------------------------------------------------------
-int janfs_fill_super(struct super_block *sb, void *data, int silent)
+static void janfs_kill_sb(struct super_block *sb)
 {
-	struct inode * inode = NULL;
-
-	// Fill in the superblock
-        sb->s_blocksize = PAGE_CACHE_SIZE;
-        sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-        sb->s_magic = JANFS_MAGIC;
-        sb->s_op = &janfs_ops;
-
-	inode = janfs_get_inode(sb, NULL, S_IFDIR | 0755, 0);
-	sb->s_root = d_make_root(inode);
-	if (!sb->s_root)
-		return -ENOMEM;
-
-	return 0;
+	kfree(sb->s_fs_info);
+	kill_litter_super(sb);
 }
+
+
 
 //-----------------------------------------------------------------------------
 // Return information about an JANFS volume
@@ -234,7 +248,7 @@ struct inode *janfs_get_inode(struct super_block *sb,
 			inode->i_op = &janfs_dir_inode_operations;
 			inode->i_fop = &simple_dir_operations;
 
-			/* directory inodes start off with i_nlink == 2 (for "." entry) */
+			// directory inodes start off with i_nlink == 2 (for "." entry)
 			inc_nlink(inode);
 			break;
 		case S_IFLNK:
@@ -244,7 +258,6 @@ struct inode *janfs_get_inode(struct super_block *sb,
 	}
 	return inode;
 }
-
 
 
 
@@ -281,7 +294,9 @@ static int __init janfs_init(void)
  */
 static void __exit janfs_exit(void)
 {
-	printk("Removing janfs filesystem.\n");
+	printk("Removing janfs filesystem. Closing client socket.\n");
+
+	close_client_socket();
 
 	unregister_filesystem(&janfs_fstype);
 }
