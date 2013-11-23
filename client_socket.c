@@ -4,6 +4,7 @@
 #include <net/sock.h>
 #include <net/tcp.h>
 
+#include "protocol.h"
 #include "socket.h"
 
 //-----------------------------------------------------------------------------
@@ -94,7 +95,7 @@ void close_client_socket()
 }
 
 //-----------------------------------------------------------------------------
-int send_srv_msg(char *msg, uint32_t len)
+int send_srv_msg(unsigned char* msg, unsigned short len)
 {
 	int ret;
 	mm_segment_t oldfs;
@@ -123,7 +124,7 @@ int send_srv_msg(char *msg, uint32_t len)
 }
 
 //-----------------------------------------------------------------------------
-int recv_srv_msg(char *buffer, uint32_t len)
+int recv_srv_msg(unsigned char* buffer, unsigned short len)
 {
 	int ret;
 	mm_segment_t oldfs;
@@ -151,9 +152,64 @@ int recv_srv_msg(char *buffer, uint32_t len)
 	return ret;
 }
 
+//-----------------------------------------------------------------------------
+int srv_cmd(int cmd, const unsigned char* data_buf,
+            const unsigned short* data_size, unsigned char* recv_buf,
+            unsigned short* recv_size)
+{
+    unsigned char* send_buf = NULL;
+    unsigned short send_size = 0;
+    int ret = -1, i;
+    
+    ret = proto_build_cmd(cmd, &send_buf, &send_size, data_buf, data_size);
+    if (ret != 0)
+    	goto out_err_ret;
+	
+	ret = send_srv_msg(send_buf, send_size);
+	if (ret != send_size) {
+		printk(KERN_ERR "Error sending message to server.\n");
+		goto out_err;
+	}
+
+	ret = recv_srv_msg(recv_buf, *recv_size);
+	if (ret < 0) {
+		printk("Error receiving message from server.\n");
+	}
+	
+	// Only for debug
+	printk("Received message from server with (%d) bytes: [", ret);
+	for (i = 0; i < ret; i++)
+		printk("%02X:", recv_buf[i]);
+	printk("]\n");
+	
+	kfree(send_buf);
+	return 0;
+	
+out_err:
+	kfree(send_buf);
+out_err_ret:
+	return -1;
+}
+
+
+
 
 
 
 
 //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 
