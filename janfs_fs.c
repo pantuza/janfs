@@ -19,21 +19,13 @@
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 
+#include "protocol.h"
 #include "socket.h"
 #include "janfs_fs.h"
 
 //-----------------------------------------------------------------------------
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Luiz Gustavo / Gustavo Pantuza");
-
-//-----------------------------------------------------------------------------
-static char *remote_addr = "255.255.255.255";
-module_param(remote_addr, charp, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-MODULE_PARM_DESC(remote_addr, "A remote IP address to connect");
-
-static int remote_port = 0;
-module_param(remote_port, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-MODULE_PARM_DESC(remote_port, "A remote port to connect");
 
 //-----------------------------------------------------------------------------
 #define JANFS_MAGIC 0xafafafaf
@@ -46,9 +38,12 @@ static const struct inode_operations janfs_dir_inode_operations;
 //-----------------------------------------------------------------------------
 // Local Functions Prototypes
 //-----------------------------------------------------------------------------
-static int janfs_statfs(struct dentry *dentry, struct kstatfs *buf);
+static int janfs_statfs(struct dentry *dentry,
+                        struct kstatfs *buf);
 static struct inode *janfs_get_inode(struct super_block *sb,
-				const struct inode *dir, umode_t mode, dev_t dev);
+				                     const struct inode *dir,
+				                     umode_t mode,
+				                     dev_t dev);
 static void janfs_kill_sb(struct super_block *sb);
 
 
@@ -149,11 +144,29 @@ int janfs_fill_super(struct super_block *sb, void *data, int silent)
 struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	int ret = 0;
-	char buf[255];
-//	struct dentry *mntroot = ERR_PTR(-ENOMEM);
-
-	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_addr, remote_port);
+	int ret = 0, remote_port = 0;
+//	unsigned char buf[4096];
+    char* remote_address = "255.255.255.255";
+	const char* data_buf = dev_name; //strdup(dev_name);
+	/* /// \TODO
+	char* token = strsep(&data_buf, ":");
+	if (!token) {
+		printk("Erro spliting string [%s].\n", dev_name);
+		goto out_err;
+	}
+	strncpy(remote_address, token, sizeof(remote_address));
+	
+	token = strtok(NULL, ":");
+	if (!token) {
+		printk("Erro spliting string [%s].\n", dev_name);
+		goto out_err;
+	}
+	rv = kstrtoint(token, 10, &remote_port); 
+	remote_port = simple_strtoul(token, 0, 10);
+	*/
+	
+	
+	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_address, remote_port);
 
 	ret = create_client_socket();
 	if (ret) {
@@ -162,24 +175,19 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	}
 
 	// Connect to specified address
-	ret = connect_server(remote_addr, remote_port);
+	ret = connect_server(remote_address, remote_port);
 	if (ret) {
 		printk(KERN_ERR "Could not connect to remote host.\n");
 		goto out_err;
 	}
-
-	if (send_srv_msg("LOOKUP", strlen("LOOKUP")+1) != (strlen("LOOKUP")+1)) {
-		printk(KERN_ERR "Error sending message to server.\n");
-		goto out_err;
-	}
-
-	if (recv_srv_msg(buf, 255) > 0) {
-		printk("Received message from server (%s).\n", buf);
-	}
-
-	// Sends mount command
-
-	// Waits for response
+	
+	// Send mount command
+	printk("Mount data[%s], dev_name[%s].\n", data_buf, dev_name);
+	
+    //if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), buf, sizeof(buf)) != 0) {
+    //	printk(KERN_ERR "Could not send or receive the mount command.\n");
+    //	goto out_err;
+    //}
    
 	// Fills superblock with information received from server
 
