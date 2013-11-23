@@ -145,26 +145,36 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int ret = 0, remote_port = 0;
-//	unsigned char buf[4096];
-    char* remote_address = "255.255.255.255";
-	const char* data_buf = dev_name; //strdup(dev_name);
-	/* /// \TODO
-	char* token = strsep(&data_buf, ":");
+	unsigned char recv_buf[1024];
+   unsigned short recv_size = 0;
+   char remote_address[32];
+   char* token = NULL;
+
+	char* data_buf = kstrdup(dev_name, GFP_KERNEL);
+   if (!data_buf) {
+		printk("Error duplicating string [%s].\n", dev_name);
+		goto out_err_ret;
+	}
+   printk("Parsing string [%s].\n", data_buf);
+
+	token = strsep(&data_buf, ":");
 	if (!token) {
-		printk("Erro spliting string [%s].\n", dev_name);
+		printk("Error spliting string [%s].\n", data_buf);
 		goto out_err;
 	}
+	printk("Parsing token [%s].\n", token);
 	strncpy(remote_address, token, sizeof(remote_address));
 	
-	token = strtok(NULL, ":");
+	token = strsep(&data_buf, ":");
 	if (!token) {
-		printk("Erro spliting string [%s].\n", dev_name);
+		printk("Error spliting string [%s].\n", data_buf);
 		goto out_err;
 	}
-	rv = kstrtoint(token, 10, &remote_port); 
-	remote_port = simple_strtoul(token, 0, 10);
-	*/
-	
+   printk("Parsing token [%s].\n", token);
+	if (kstrtoint(token, 10, &remote_port) != 0) {
+		printk("Error parsing integer from string [%s].\n", token);
+		goto out_err;
+	}
 	
 	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_address, remote_port);
 
@@ -184,10 +194,10 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	// Send mount command
 	printk("Mount data[%s], dev_name[%s].\n", data_buf, dev_name);
 	
-    //if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), buf, sizeof(buf)) != 0) {
-    //	printk(KERN_ERR "Could not send or receive the mount command.\n");
-    //	goto out_err;
-    //}
+   if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), recv_buf, &recv_size) != 0) {
+		printk(KERN_ERR "Could not send or receive the mount command.\n");
+		goto out_err;
+	}
    
 	// Fills superblock with information received from server
 
@@ -195,6 +205,8 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	return mount_nodev(fs_type, flags, data, janfs_fill_super);
 
 out_err:
+	kfree(data_buf);
+out_err_ret:
 	return ERR_PTR(-ENOMEM);
 }
 
