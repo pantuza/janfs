@@ -31,6 +31,6 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len);
 //-----------------------------------------------------------------------------
 int srv_cmd(int cmd, const unsigned char* data_buf,
             unsigned short data_size, unsigned char* recv_buf,
-            unsigned short* recv_size);
+            unsigned short recv_size);
 
 #endif // _JANFS_SOCKET_H_

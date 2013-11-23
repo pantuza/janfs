@@ -109,7 +109,7 @@ int send_srv_msg(unsigned char* msg, unsigned short len)
 	sndmsg.msg_iovlen = 1;
 	sndmsg.msg_control = NULL;
 	sndmsg.msg_controllen = 0;
-	sndmsg.msg_flags = MSG_DONTWAIT;
+	sndmsg.msg_flags = MSG_WAITALL;
 
 	sndmsg.msg_iov->iov_base = msg;
 	sndmsg.msg_iov->iov_len = len;
@@ -138,7 +138,7 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len)
 	sndmsg.msg_iovlen = 1;
 	sndmsg.msg_control = NULL;
 	sndmsg.msg_controllen = 0;
-	sndmsg.msg_flags = MSG_DONTWAIT;
+	sndmsg.msg_flags = MSG_WAITALL; //MSG_DONTWAIT;
 
 	sndmsg.msg_iov->iov_base = buffer;
 	sndmsg.msg_iov->iov_len = len;
@@ -156,26 +156,26 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len)
 //-----------------------------------------------------------------------------
 int srv_cmd(int cmd, const unsigned char* data_buf,
             unsigned short data_size, unsigned char* recv_buf,
-            unsigned short* recv_size)
+            unsigned short recv_size)
 {
-   unsigned char* send_buf = NULL;
-   unsigned short send_size = 0;
-   int ret = -1, i;
+	unsigned char* send_buf = NULL;
+	unsigned short send_size = 0;
+	int ret = -1, i;
 
 	// Allocates memory
 	send_size = PROTO_SIZE + data_size;
-   send_buf = kmalloc(send_size, GFP_KERNEL);
+	send_buf = kmalloc(send_size, GFP_KERNEL);
 	if (!send_buf) {
 		printk(KERN_ERR "Error allocating buffer to send message to server.\n");
 		goto out_err_ret;
 	}
    
 	printk("Building command %d.\n", cmd);
-   ret = proto_build_cmd(cmd, send_buf, send_size, data_buf, data_size);
-   if (ret != 0)
-      goto out_err;
+	ret = proto_build_cmd(cmd, send_buf, send_size, data_buf, data_size);
+	if (ret != 0)
+		goto out_err;
 	
-   printk("Sending message to server...\n");
+	printk("Sending message to server...\n");
 	ret = send_srv_msg(send_buf, send_size);
 	if (ret != send_size) {
 		printk(KERN_ERR "Error sending message to server.\n");
@@ -183,7 +183,7 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
 	}
 
 	printk("Receiving response from server...\n");
-	ret = recv_srv_msg(recv_buf, *recv_size);
+	ret = recv_srv_msg(recv_buf, recv_size);
 	if (ret < 0) {
 		printk("Error receiving message from server.\n");
 	}
