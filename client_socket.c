@@ -1,6 +1,7 @@
 #include <linux/net.h>
 #include <linux/socket.h>
 #include <linux/tcp.h>
+#include <linux/slab.h>
 #include <net/sock.h>
 #include <net/tcp.h>
 
@@ -154,23 +155,34 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len)
 
 //-----------------------------------------------------------------------------
 int srv_cmd(int cmd, const unsigned char* data_buf,
-            const unsigned short* data_size, unsigned char* recv_buf,
+            unsigned short data_size, unsigned char* recv_buf,
             unsigned short* recv_size)
 {
-    unsigned char* send_buf = NULL;
-    unsigned short send_size = 0;
-    int ret = -1, i;
-    
-    ret = proto_build_cmd(cmd, &send_buf, &send_size, data_buf, data_size);
-    if (ret != 0)
-    	goto out_err_ret;
+   unsigned char* send_buf = NULL;
+   unsigned short send_size = 0;
+   int ret = -1, i;
+
+	// Allocates memory
+	send_size = PROTO_SIZE + data_size;
+   send_buf = kmalloc(send_size, GFP_KERNEL);
+	if (!send_buf) {
+		printk(KERN_ERR "Error allocating buffer to send message to server.\n");
+		goto out_err_ret;
+	}
+   
+	printk("Building command %d.\n", cmd);
+   ret = proto_build_cmd(cmd, send_buf, send_size, data_buf, data_size);
+   if (ret != 0)
+      goto out_err;
 	
+   printk("Sending message to server...\n");
 	ret = send_srv_msg(send_buf, send_size);
 	if (ret != send_size) {
 		printk(KERN_ERR "Error sending message to server.\n");
 		goto out_err;
 	}
 
+	printk("Receiving response from server...\n");
 	ret = recv_srv_msg(recv_buf, *recv_size);
 	if (ret < 0) {
 		printk("Error receiving message from server.\n");
