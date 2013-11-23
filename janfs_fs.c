@@ -145,17 +145,17 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int ret = 0, remote_port = 0;
-	unsigned char recv_buf[1024];
-   unsigned short recv_size = 0;
-   char remote_address[32];
-   char* token = NULL;
+	unsigned char recv_buf[512];
+	unsigned short recv_size = 0;
+	char remote_address[32];
+	char* token = NULL;
 
 	char* data_buf = kstrdup(dev_name, GFP_KERNEL);
-   if (!data_buf) {
+	if (!data_buf) {
 		printk("Error duplicating string [%s].\n", dev_name);
 		goto out_err_ret;
 	}
-   printk("Parsing string [%s].\n", data_buf);
+	printk("Parsing string [%s].\n", data_buf);
 
 	token = strsep(&data_buf, ":");
 	if (!token) {
@@ -170,7 +170,7 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 		printk("Error spliting string [%s].\n", data_buf);
 		goto out_err;
 	}
-   printk("Parsing token [%s].\n", token);
+	printk("Parsing token [%s].\n", token);
 	if (kstrtoint(token, 10, &remote_port) != 0) {
 		printk("Error parsing integer from string [%s].\n", token);
 		goto out_err;
@@ -193,12 +193,12 @@ struct dentry *janfs_mount(struct file_system_type *fs_type,
 	
 	// Send mount command
 	printk("Mount data[%s], dev_name[%s].\n", data_buf, dev_name);
-	
-   if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), recv_buf, &recv_size) != 0) {
+	recv_size = sizeof(recv_buf);
+    if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), recv_buf, recv_size) != 0) {
 		printk(KERN_ERR "Could not send or receive the mount command.\n");
 		goto out_err;
 	}
-   
+
 	// Fills superblock with information received from server
 
 
