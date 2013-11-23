@@ -20,26 +20,17 @@
 static unsigned char command_count = 0;
 
 //-----------------------------------------------------------------------------
-int proto_build_cmd(unsigned char command, unsigned char** send_buf,
-                    unsigned short* send_size, const unsigned char* data,
+int proto_build_cmd(unsigned char command, unsigned char* send_buf,
+                    unsigned short send_size, const unsigned char* data,
                     unsigned short data_size)
 {
-	int pos = 0, alloc_size = 0;
-	unsigned char* buffer = NULL;
+	int pos = 0;
+	unsigned char* buffer = send_buf;
 	
-	if (!send_buf || !send_size)  // Data is not mandatory
+	if (!send_buf)  // Data is not mandatory
 		return -1; // Error
-		
-	//          STX + COUNT + CMD + DSZ +   DATA    + ETX
-	alloc_size = 1  +   1   +  1  +  2  + data_size + 1;
-	
-	// Allocates memory
-	*send_buf = kmalloc(alloc_size, GFP_KERNEL);
-	if (!(*send_buf))
-		return -1; // Error
-		
-	buffer = *send_buf;
-	// An error beyond here must free the allocated memory
+
+	// \TODO I think the best option is to allocate the buffer here
 
 	// Fills buffer
 	buffer[pos++] = STX;
@@ -53,14 +44,11 @@ int proto_build_cmd(unsigned char command, unsigned char** send_buf,
 	}
 	buffer[pos++] = ETX;
 	
-	// Set buffer size
-	*send_size = pos;
-	
 	// Only for debug
 	printk("Build CMD(0x%02x) [", command);
-	for (pos = 0; pos < *send_size; pos++)
+	for (pos = 0; pos < send_size; pos++)
 		printk("%02x:", buffer[pos]);
-	printk("]");
+	printk("]\n");
 	
 	return 0; // Success
 }
