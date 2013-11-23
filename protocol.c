@@ -1,27 +1,16 @@
 #include <linux/kernel.h> /* printk() */
 #include <linux/string.h> /* memcpy() */
+#include <linux/slab.h>
 #include "protocol.h"
 
 //-----------------------------------------------------------------------------
 // Local functions prototypes.
 //-----------------------------------------------------------------------------
-static int build(unsigned char command,
-                 unsigned char* buf,
-                 unsigned short* buf_len,
-                 const unsigned char* data,
-                 unsigned short data_len);
+
 
 //-----------------------------------------------------------------------------
 // Local definitions
 //-----------------------------------------------------------------------------
-#define MOUNT_CMD  0x01
-#define READ_CMD   0x02
-#define WRITE_CMD  0x03
-#define CREATE_CMD 0x04
-#define OPEN_CMD   0x05
-#define CLOSE_CMD  0x06
-#define DELETE_CMD 0x07
-
 #define STX 0x02
 #define ETX 0x03
 
@@ -31,71 +20,49 @@ static int build(unsigned char command,
 static unsigned char command_count = 0;
 
 //-----------------------------------------------------------------------------
-static int build(unsigned char command,
-                 unsigned char* buf,
-                 unsigned short* buf_len,
-                 const unsigned char* data,
-                 unsigned short data_len)
+int proto_build_cmd(unsigned char command, unsigned char** send_buf,
+                    unsigned short* send_size, const unsigned char* data,
+                    unsigned short data_size)
 {
-	int pos = 0;
+	int pos = 0, alloc_size = 0;
+	unsigned char* buffer = NULL;
 	
-	if (!buf || !buf_len)  // data is not mandatory
-		return -1;
+	if (!send_buf || !send_size)  // Data is not mandatory
+		return -1; // Error
 		
-	buf[pos++] = STX;
-	buf[pos++] = command_count++;
-	buf[pos++] = command;
-	memcpy(&buf[pos], &data_len, sizeof(data_len));
-	pos += data_len;
+	//          STX + COUNT + CMD + DSZ +   DATA    + ETX
+	alloc_size = 1  +   1   +  1  +  2  + data_size + 1;
+	
+	// Allocates memory
+	*send_buf = kmalloc(alloc_size, GFP_KERNEL);
+	if (!(*send_buf))
+		return -1; // Error
+		
+	buffer = *send_buf;
+	// An error beyond here must free the allocated memory
+
+	// Fills buffer
+	buffer[pos++] = STX;
+	buffer[pos++] = command_count++;
+	buffer[pos++] = command;
+	memcpy(&buffer[pos], &data_size, sizeof(data_size));
+	pos += sizeof(data_size);
 	if (data) {
-		memcpy(&buf[pos], data, data_len);
-		pos += data_len;
+		memcpy(&buffer[pos], data, data_size);
+		pos += data_size;
 	}
-	buf[pos++] = ETX;
+	buffer[pos++] = ETX;
+	
 	// Set buffer size
-	*buf_len = pos;
+	*send_size = pos;
 	
 	// Only for debug
-	printk("Buffer [");
-	for (pos = 0; pos < *buf_len; pos++)
-		printk("%02x:", buf[pos]);
+	printk("Build CMD(0x%02x) [", command);
+	for (pos = 0; pos < *send_size; pos++)
+		printk("%02x:", buffer[pos]);
 	printk("]");
-}
-
-//-----------------------------------------------------------------------------
-void mount_cmd(unsigned char* buf, int* len)
-{
 	
-}
-
-//-----------------------------------------------------------------------------
-void read_cmd(unsigned char* buf, int* len)
-{
-}
-
-//-----------------------------------------------------------------------------
-void write_cmd(unsigned char* buf, int* len)
-{
-}
-
-//-----------------------------------------------------------------------------
-void create_cmd(unsigned char* buf, int* len)
-{
-}
-
-//-----------------------------------------------------------------------------
-void open_cmd(unsigned char* buf, int* len)
-{
-}
-
-//-----------------------------------------------------------------------------
-void close_cmd(unsigned char* buf, int* len)
-{
-}
-
-//-----------------------------------------------------------------------------
-void delete_cmd(unsigned char* buf, int* len)
-{
+	return 0; // Success
 }
 
 

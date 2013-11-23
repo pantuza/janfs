@@ -19,12 +19,18 @@ void close_client_socket(void);
 //-----------------------------------------------------------------------------
 // Sends a message to server.
 //-----------------------------------------------------------------------------
-int send_srv_msg(char *msg, uint32_t len);
+int send_srv_msg(unsigned char* msg, unsigned short len);
 
 //-----------------------------------------------------------------------------
-// Receives a message from server.
+// Receives a message from server with at most len bytes.
 //-----------------------------------------------------------------------------
-int recv_srv_msg(char *buffer, uint32_t len);
+int recv_srv_msg(unsigned char* buffer, unsigned short len);
 
+//-----------------------------------------------------------------------------
+// Sends a command to server and returns the response.
+//-----------------------------------------------------------------------------
+int srv_cmd(int cmd, const unsigned char* data_buf,
+            const unsigned short* data_size, unsigned char* recv_buf,
+            unsigned short* recv_size);
 
 #endif // _JANFS_SOCKET_H_

@@ -2,38 +2,21 @@
 #define _JANFS_PROTOCOL_H_
 
 //-----------------------------------------------------------------------------
-// Returns the MOUNT command and the buffer length.
+// Available commands
 //-----------------------------------------------------------------------------
-void mount_cmd(unsigned char* buf, int* len);
+#define MOUNT_CMD  0x01
+#define READ_CMD   0x02
+#define WRITE_CMD  0x03
+#define CREATE_CMD 0x04
+#define OPEN_CMD   0x05
+#define CLOSE_CMD  0x06
+#define DELETE_CMD 0x07
 
 //-----------------------------------------------------------------------------
-// Returns the READ command and the buffer length.
+// Builds the requested command and returns the buffer and buffer size builded.
 //-----------------------------------------------------------------------------
-void read_cmd(unsigned char* buf, int* len);
-
-//-----------------------------------------------------------------------------
-// Returns the WRITE command and the buffer length.
-//-----------------------------------------------------------------------------
-void write_cmd(unsigned char* buf, int* len);
-
-//-----------------------------------------------------------------------------
-// Returns the CREATE command and the buffer length.
-//-----------------------------------------------------------------------------
-void create_cmd(unsigned char* buf, int* len);
-
-//-----------------------------------------------------------------------------
-// Returns the OPEN command and the buffer length.
-//-----------------------------------------------------------------------------
-void open_cmd(unsigned char* buf, int* len);
-
-//-----------------------------------------------------------------------------
-// Returns the CLOSE command and the buffer length.
-//-----------------------------------------------------------------------------
-void close_cmd(unsigned char* buf, int* len);
-
-//-----------------------------------------------------------------------------
-// Returns the DELETE command and the buffer length.
-//-----------------------------------------------------------------------------
-void delete_cmd(unsigned char* buf, int* len);
+int proto_build_cmd(unsigned char command, unsigned char** send_buf,
+                    unsigned short* send_size, const unsigned char* data,
+                    unsigned short data_size);
 
 #endif // _JANFS_PROTOCOL_H_
