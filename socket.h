@@ -27,10 +27,9 @@ int send_srv_msg(unsigned char* msg, unsigned short len);
 int recv_srv_msg(unsigned char* buffer, unsigned short len);
 
 //-----------------------------------------------------------------------------
-// Sends a command to server and returns the response.
+// Reads remote directory and returns a list of it's files.
 //-----------------------------------------------------------------------------
-int srv_cmd(int cmd, const unsigned char* data_buf,
-            unsigned short data_size, unsigned char* recv_buf,
-            unsigned short recv_size);
+int srv_read_dir(char* path, struct tree_descr **file_list,
+                 unsigned short *nfiles);
 
 #endif // _JANFS_SOCKET_H_
