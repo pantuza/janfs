@@ -160,7 +160,9 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
 {
 	unsigned char* send_buf = NULL;
 	unsigned short send_size = 0;
-	int ret = -1, i;
+	char resp_buf[recv_size];
+	unsigned short resp_size = 0;
+	int n = -1, i;
 
 	// Allocates memory
 	send_size = PROTO_SIZE + data_size;
@@ -171,31 +173,35 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
 	}
    
 	printk("Building command %d.\n", cmd);
-	ret = proto_build_cmd(cmd, send_buf, send_size, data_buf, data_size);
-	if (ret != 0)
+	n = proto_build_cmd(cmd, send_buf, send_size, data_buf, data_size);
+	if (n != 0)
 		goto out_err;
 	
 	printk("Sending message to server...\n");
-	ret = send_srv_msg(send_buf, send_size);
-	if (ret != send_size) {
+	n = send_srv_msg(send_buf, send_size);
+	if (n != send_size) {
 		printk(KERN_ERR "Error sending message to server.\n");
 		goto out_err;
 	}
 
 	printk("Receiving response from server...\n");
-	ret = recv_srv_msg(recv_buf, recv_size);
-	if (ret < 0) {
+	n = recv_srv_msg(resp_buf, recv_size);
+	if (n < 0) {
 		printk("Error receiving message from server.\n");
 	}
 	
 	// Only for debug
-	printk("Received message from server with (%d) bytes: [", ret);
-	for (i = 0; i < ret; i++)
-		printk("%02X:", recv_buf[i]);
+	printk("Received message from server with (%d) bytes: [", n);
+	for (i = 0; i < n; i++)
+		printk("%02X:", resp_buf[i]);
 	printk("]\n");
 	
+	// Removes the protocol bytes from response
+	memcpy(&resp_size, &resp_buf[3], sizeof(resp_size));
+	memcpy(recv_buf, &resp_buf[5], resp_size);
+	
 	kfree(send_buf);
-	return 0;
+	return resp_size;
 	
 out_err:
 	kfree(send_buf);
