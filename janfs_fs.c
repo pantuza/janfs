@@ -32,7 +32,7 @@ MODULE_AUTHOR("Luiz Gustavo / Gustavo Pantuza");
 #define JANFS_BSIZE 1024
 
 //-----------------------------------------------------------------------------
-static const struct super_operations janfs_ops;
+static const struct super_operations janfs_super_operations;
 static const struct inode_operations janfs_dir_inode_operations;
 
 //-----------------------------------------------------------------------------
@@ -45,6 +45,12 @@ static struct inode *janfs_get_inode(struct super_block *sb,
 				                     umode_t mode,
 				                     dev_t dev);
 static void janfs_kill_sb(struct super_block *sb);
+
+//-----------------------------------------------------------------------------
+// Local Variables
+//-----------------------------------------------------------------------------
+static char mount_path[512];
+
 
 
 
@@ -72,13 +78,6 @@ static const struct inode_operations janfs_dir_inode_operations = {
 };
 
 //-----------------------------------------------------------------------------
-static const struct super_operations janfs_ops = {
-	.statfs		= janfs_statfs,
-	.drop_inode	= generic_delete_inode,
-	.show_options	= generic_show_options,
-};
-
-//-----------------------------------------------------------------------------
 const struct file_operations janfs_file_operations = {
 	.read		= do_sync_read,
 	.aio_read	= generic_file_aio_read,
@@ -99,9 +98,9 @@ const struct inode_operations janfs_file_inode_operations = {
 
 //-----------------------------------------------------------------------------
 const struct address_space_operations janfs_aops = {
-	.readpage	= simple_readpage,
+	.readpage		= simple_readpage,
 	.write_begin	= simple_write_begin,
-	.write_end	= simple_write_end,
+	.write_end		= simple_write_end,
 //	.set_page_dirty = __set_page_dirty_no_writeback,
 };
 
@@ -110,11 +109,42 @@ const struct address_space_operations janfs_aops = {
 // and a function that can construct a superblock.
 //-----------------------------------------------------------------------------
 static struct file_system_type janfs_fstype = {
+	.owner      = THIS_MODULE,
 	.name		= "janfs",
 	.mount		= janfs_mount,
 	.kill_sb	= janfs_kill_sb,
 	.fs_flags	= FS_USERNS_MOUNT,
 };
+
+//-----------------------------------------------------------------------------
+static const struct super_operations janfs_super_operations = {
+	.statfs			= janfs_statfs,
+	.drop_inode		= generic_delete_inode,
+	.show_options	= generic_show_options,
+};
+
+
+
+
+void mount_cmd(char* data)
+{
+	unsigned char recv_buf[512];
+	unsigned short recv_size = 0;
+	
+	printk("mount_cmd INI: data[%s].\n", data);
+	recv_size = sizeof(recv_buf);
+	if (srv_cmd(MOUNT_CMD, data, strlen(data), recv_buf, recv_size) != 0) {
+		printk(KERN_ERR "   Could not send or receive the mount command.\n");
+		return;
+	}
+
+	// Set root inode
+}
+
+
+
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -122,85 +152,94 @@ static struct file_system_type janfs_fstype = {
 //-----------------------------------------------------------------------------
 int janfs_fill_super(struct super_block *sb, void *data, int silent)
 {
-	struct inode * inode = NULL;
+	struct inode* i = NULL;
 
 	// Fill in the superblock
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
 	sb->s_magic = JANFS_MAGIC;
-	sb->s_op = &janfs_ops;
+	sb->s_flags |= MS_NOATIME; // Do not update access times
+	sb->s_op = &janfs_super_operations;
+	//sb->s_d_op = &janfs_dentry_operations;
 
-	inode = janfs_get_inode(sb, NULL, S_IFDIR | 0755, 0);
-	sb->s_root = d_make_root(inode);
+	i = janfs_get_inode(sb, NULL, S_IFDIR | 0755, 0);
+	
+	sb->s_root = d_make_root(i);
 	if (!sb->s_root)
 		return -ENOMEM;
 
 	return 0;
 }
 
+
 //-----------------------------------------------------------------------------
 // Mount the filesystem
+// From docs: the mount() method must return the root dentry of the tree
+// requested by caller.  An active reference to its superblock must be
+// grabbed and the superblock must be locked.  On failure it should return
+// ERR_PTR(error).
 //-----------------------------------------------------------------------------
 struct dentry *janfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int ret = 0, remote_port = 0;
-	unsigned char recv_buf[512];
-	unsigned short recv_size = 0;
 	char remote_address[32];
 	char* token = NULL;
+	char* data_buf = NULL;
 
-	char* data_buf = kstrdup(dev_name, GFP_KERNEL);
+    printk("Janfs mounting filesystem: data[%s], dev_name[%s].\n", (char*)data, dev_name);
+    
+	data_buf = kstrdup(dev_name, GFP_KERNEL);
 	if (!data_buf) {
-		printk("Error duplicating string [%s].\n", dev_name);
+		printk("   Error duplicating string [%s].\n", dev_name);
 		goto out_err_ret;
 	}
-	printk("Parsing string [%s].\n", data_buf);
 
+    // Remote address
 	token = strsep(&data_buf, ":");
 	if (!token) {
-		printk("Error spliting string [%s].\n", data_buf);
+		printk("   Error spliting string [%s].\n", data_buf);
 		goto out_err;
 	}
-	printk("Parsing token [%s].\n", token);
 	strncpy(remote_address, token, sizeof(remote_address));
 	
+	// Remote port
 	token = strsep(&data_buf, ":");
 	if (!token) {
-		printk("Error spliting string [%s].\n", data_buf);
+		printk("   Error spliting string [%s].\n", data_buf);
 		goto out_err;
 	}
-	printk("Parsing token [%s].\n", token);
 	if (kstrtoint(token, 10, &remote_port) != 0) {
-		printk("Error parsing integer from string [%s].\n", token);
+		printk("   Error parsing integer from string [%s].\n", token);
 		goto out_err;
 	}
 	
-	printk("Mounting janfs with remote addr=%s and port=%d.\n", remote_address, remote_port);
+	// Copy remote mount path
+	token = strsep(&data_buf, ":");
+	if (!token) {
+		printk("   Error spliting string [%s].\n", data_buf);
+		goto out_err;
+	}
+	strncpy(mount_path, token, sizeof(mount_path));
+	
+	// Free duplicated string
+	kfree(data_buf);
+	
+	printk("Mounting janfs with remote addr=%s, port=%d and path=%s.\n",
+	       remote_address, remote_port, token);
 
 	ret = create_client_socket();
 	if (ret) {
-		printk(KERN_ERR "Could not create client socket.\n");
+		printk(KERN_ERR "   Could not create client socket.\n");
 		goto out_err;
 	}
 
 	// Connect to specified address
 	ret = connect_server(remote_address, remote_port);
 	if (ret) {
-		printk(KERN_ERR "Could not connect to remote host.\n");
+		printk(KERN_ERR "   Could not connect to remote host.\n");
 		goto out_err;
 	}
-	
-	// Send mount command
-	printk("Mount data[%s], dev_name[%s].\n", data_buf, dev_name);
-	recv_size = sizeof(recv_buf);
-    if (srv_cmd(MOUNT_CMD, data_buf, strlen(data_buf), recv_buf, recv_size) != 0) {
-		printk(KERN_ERR "Could not send or receive the mount command.\n");
-		goto out_err;
-	}
-
-	// Fills superblock with information received from server
-
 
 	return mount_nodev(fs_type, flags, data, janfs_fill_super);
 
@@ -219,7 +258,6 @@ static void janfs_kill_sb(struct super_block *sb)
 	kfree(sb->s_fs_info);
 	kill_litter_super(sb);
 }
-
 
 
 //-----------------------------------------------------------------------------
@@ -254,8 +292,8 @@ struct inode *janfs_get_inode(struct super_block *sb,
 		inode->i_mapping->a_ops = &janfs_aops;
 		inode->i_mapping->backing_dev_info = &janfs_backing_dev_info;
 		mapping_set_gfp_mask(inode->i_mapping, GFP_HIGHUSER);
-		mapping_set_unevictable(inode->i_mapping);
-		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+		//mapping_set_unevictable(inode->i_mapping);
+		inode->i_flags |= S_NOATIME|S_NOCMTIME;
 		switch (mode & S_IFMT) {
 		default:
 			init_special_inode(inode, mode, dev);
@@ -314,7 +352,7 @@ static int __init janfs_init(void)
  */
 static void __exit janfs_exit(void)
 {
-	printk("Removing janfs filesystem. Closing client socket.\n");
+	printk("Removing janfs filesystem.\n");
 
 	close_client_socket();
 
