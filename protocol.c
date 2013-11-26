@@ -53,6 +53,38 @@ int proto_build_cmd(unsigned char command, unsigned char* send_buf,
 	return 0; // Success
 }
 
+//-----------------------------------------------------------------------------
+int proto_data_field(unsigned char* recv_buf, unsigned short* recv_size)
+{
+	unsigned char* tmp_buf;
+
+	// Validate parameters
+	if (!recv_buf || !recv_size)
+		return -1;
+
+	// Validate buffer received
+	if (recv_buf[0] != STX || recv_buf[(*recv_size)-1] != ETX)
+		return -1;
+
+    tmp_buf = kmalloc(*recv_size, GFP_KERNEL);
+    if (!tmp_buf)
+		return -1;
+
+	// Data size length
+	memcpy(recv_size, &recv_buf[3], sizeof(*recv_size));
+
+	// Use new data size length to copy data to tmp buffer
+	memcpy(tmp_buf, &recv_buf[5], *recv_size);
+
+	// Update original buffer with only data bytes
+	memcpy(recv_buf, tmp_buf, *recv_size);
+
+	// Free tmp buffer
+	kfree(tmp_buf);
+
+	return 0;
+}
+
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

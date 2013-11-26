@@ -34,4 +34,10 @@ int proto_build_cmd(unsigned char command, unsigned char* send_buf,
                     unsigned short send_size, const unsigned char* data,
                     unsigned short data_size);
 
+//-----------------------------------------------------------------------------
+// Extract data from packet received from server.
+//-----------------------------------------------------------------------------
+int proto_data_field(unsigned char* recv_buf, unsigned short* size);
+
+
 #endif // _JANFS_PROTOCOL_H_
