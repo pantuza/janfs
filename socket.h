@@ -1,6 +1,8 @@
 #ifndef _JANFS_SOCKET_H_
 #define _JANFS_SOCKET_H_
 
+#include "protocol.h"
+
 //-----------------------------------------------------------------------------
 // Creates the client socket.
 //-----------------------------------------------------------------------------
@@ -28,10 +30,9 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len);
 
 //-----------------------------------------------------------------------------
 // Reads remote directory and returns the list of it's files.
-// The list is formatted to direct use of libfs structure "tree_descr", with
-// the first and last elements filled properly.
+// The list is formatted according to protocol structure FileDesc.
 //-----------------------------------------------------------------------------
-int srv_read_dir(char* path, struct tree_descr **file_list,
+int srv_read_dir(char* path, struct FileDesc **file_list,
                  unsigned short *nfiles);
 
 #endif // _JANFS_SOCKET_H_
