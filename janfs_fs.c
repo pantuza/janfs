@@ -144,14 +144,52 @@ void mount_cmd(char* data)
 
 
 //-----------------------------------------------------------------------------
-// Read and popuplate directory
+// Read remote directory "path"
 //-----------------------------------------------------------------------------
-void janfs_read_dir(char* path, struct tree_descr** file_list)
+static void janfs_read_dir(char* path, struct FileDesc** file_list,
+                           unsigned short* nfiles)
 {
-    unsigned short nfiles = 0;
     printk("janfs_read_dir INI: path[%s].\n", path);
-    srv_read_dir(path, file_list, &nfiles);
-    printk(" janfs_read_dir returned [%d] files in directory [%s].\n", nfiles, path);
+    srv_read_dir(path, file_list, nfiles);
+    printk(" janfs_read_dir returned [%d] files in directory [%s].\n", *nfiles, path);
+}
+
+//-----------------------------------------------------------------------------
+// Populates directory
+//-----------------------------------------------------------------------------
+static struct dentry * janfs_create_file(struct super_block *sb,
+                                         struct dentry *dir,
+                                         struct FileDesc desc)
+{
+    struct dentry* dentry;
+    struct inode *i;
+    struct qstr hname;
+
+    // Hashed version of the name
+    hname.name = desc.name;
+    hname.len = strlen (desc.name);
+    hname.hash = full_name_hash(desc.name, hname.len);
+
+    // Create dentry and the inode to associate with it
+    dentry = d_alloc(dir, &hname);
+    if (!dentry)
+        goto out_err;
+
+    i = janfs_get_inode(sb, NULL, S_IFREG | 0755, 0);
+    if (!i)
+        goto out_err_put;
+
+    // Add inode to dentry cache
+    d_add(dentry, i);
+
+	printk("janfs_create_file created name[%s], type[%c], size[%lu].\n", desc.name, desc.type, desc.size);
+
+    return dentry;
+
+out_err_put:
+    dput(dentry);
+out_err:
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -159,8 +197,9 @@ void janfs_read_dir(char* path, struct tree_descr** file_list)
 //-----------------------------------------------------------------------------
 int janfs_fill_super(struct super_block *sb, void *data, int silent)
 {
-/*
     struct inode* i = NULL;
+    struct FileDesc *root_files = NULL;
+    unsigned short n, nfiles = 0;
 
     // Fill in the superblock
     sb->s_blocksize = PAGE_CACHE_SIZE;
@@ -170,14 +209,22 @@ int janfs_fill_super(struct super_block *sb, void *data, int silent)
     sb->s_op = &janfs_super_operations;
     //sb->s_d_op = &janfs_dentry_operations;
 
+    // Make the root inode for this filesystem
     i = janfs_get_inode(sb, NULL, S_IFDIR | 0755, 0);
-
     sb->s_root = d_make_root(i);
     if (!sb->s_root)
         return -ENOMEM;
 
+    // Read root directory
+    janfs_read_dir(mount_path, &root_files, &nfiles);
+    // Populates root
+    for (n = 0; n < nfiles; n++) {
+        janfs_create_file(sb, sb->s_root, root_files[n]);
+    }
+
     return 0;
-*/
+
+/*
     struct tree_descr *root_files = NULL;
 
     // Read root directory
@@ -185,6 +232,7 @@ int janfs_fill_super(struct super_block *sb, void *data, int silent)
 
     // Populates root directory
     return simple_fill_super(sb, JANFS_MAGIC, root_files);
+*/
 }
 
 
