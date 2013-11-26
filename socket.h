@@ -27,7 +27,9 @@ int send_srv_msg(unsigned char* msg, unsigned short len);
 int recv_srv_msg(unsigned char* buffer, unsigned short len);
 
 //-----------------------------------------------------------------------------
-// Reads remote directory and returns a list of it's files.
+// Reads remote directory and returns the list of it's files.
+// The list is formatted to direct use of libfs structure "tree_descr", with
+// the first and last elements filled properly.
 //-----------------------------------------------------------------------------
 int srv_read_dir(char* path, struct tree_descr **file_list,
                  unsigned short *nfiles);

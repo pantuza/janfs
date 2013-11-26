@@ -166,16 +166,15 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
     unsigned char* send_buf = NULL;
     unsigned short send_size = 0;
     char resp_buf[512];
-    unsigned short resp_size = 0;
     int n = -1, i;
 
-    // Validates parameters
+    // Validate parameters
     if (!recv_buf || !recv_size) {
         printk(KERN_ERR "Error in srv_cmd() parameters.\n");
         return -1;
     }
 
-    // Allocates memory
+    // Allocate memory
     send_size = PROTO_SIZE + data_size;
     send_buf = kmalloc(send_size, GFP_KERNEL);
     if (!send_buf) {
@@ -211,13 +210,13 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
     }
 
     // Only for debug
-    printk("Received message from server with (%d) bytes: [", n);
-    for (i = 0; i < n; i++)
-        printk("%02X:", resp_buf[i]);
+    printk("Received message from server with (%d) bytes: [", *recv_size);
+    for (i = 0; i < (*recv_size); i++)
+        printk("%02X:", (*recv_buf)[i]);
     printk("]\n");
 
     kfree(send_buf);
-    return resp_size;
+    return (*recv_size);
 
 out_err:
     kfree(send_buf);
@@ -231,6 +230,7 @@ int srv_read_dir(char* path, struct tree_descr **file_list, unsigned short *nfil
     unsigned char* recv_buf = NULL;
     unsigned short recv_size = 0;
     unsigned short data_size = 0;
+    struct FileDesc* prot_file_list = NULL;
     int i, nreg = 0;
 
     // Validate parameters
@@ -240,7 +240,7 @@ int srv_read_dir(char* path, struct tree_descr **file_list, unsigned short *nfil
     }
 
     // Send command
-    if (srv_cmd(MOUNT_CMD, path, strlen(path), &recv_buf, &recv_size) != 0) {
+    if (srv_cmd(MOUNT_CMD, path, strlen(path), &recv_buf, &recv_size) < 0) {
         printk(KERN_ERR "Could not send or receive the mount command.\n");
         return -1;
     }
@@ -248,23 +248,44 @@ int srv_read_dir(char* path, struct tree_descr **file_list, unsigned short *nfil
     // Process response
     // Data size
     memcpy(&data_size, &recv_buf[3], sizeof(data_size));
-    nreg = data_size / sizeof(struct tree_descr);
-
-    printk("Mount command returned [%d] files in remote directory [%s].\n", nreg, path);
-
-    *file_list = kmalloc(nreg * sizeof(struct tree_descr), GFP_KERNEL);
-    if ((*file_list) == NULL) {
-        printk(KERN_ERR "Error allocating memory in srv_read_dir().\n");
+    nreg = data_size / sizeof(struct FileDesc);
+    prot_file_list = kmalloc(nreg * sizeof(struct FileDesc), GFP_KERNEL);
+    if (prot_file_list == NULL) {
+        printk(KERN_ERR "Error allocating memory in srv_read_dir() to prot_file_list.\n");
         kfree(recv_buf);
         return -1;
     }
-    for (i = 0; i < nreg; i++) {
-        memcpy(&(*file_list)[i], &recv_buf[i * sizeof(struct tree_descr)], sizeof(struct tree_descr));
+
+    printk("Mount command returned [%d] files in remote directory [%s].\n", nreg, path);
+
+    // Allocate list plus the first NULL root register and last empty register name.
+    *file_list = kmalloc((nreg + 2) * sizeof(struct tree_descr), GFP_KERNEL);
+    if ((*file_list) == NULL) {
+        printk(KERN_ERR "Error allocating memory in srv_read_dir() to file_list.\n");
+	kfree(prot_file_list);
+        kfree(recv_buf);
+        return -1;
+    }
+
+    // First array is zero
+    (*file_list)[0] = (struct tree_descr) { NULL, NULL, 0 };    
+
+    for (i = 1; i <= nreg; i++) {
+        // FileDesc starts in the protocol structure at the 5th byte.
+        // I subtract one unit of the recv_buf 'i' index to start copying the 0th element.
+        memcpy(&prot_file_list[i], &recv_buf[5 + ((i-1) * sizeof(struct FileDesc))], sizeof(struct FileDesc));
+		(*file_list)[i].name = prot_file_list[i].name;
+		(*file_list)[i].mode = S_IFREG | 0644;
+		//(*file_list)[i].ops  = &lfs_file_ops;
         printk("   Copied tree_descr: name[%s], mode[%03d].\n", (*file_list)[i].name, (*file_list)[i].mode);
     }
 
+    // Last file_list item
+    (*file_list)[nreg+1] = (struct tree_descr) { "", NULL, 0 };  
+
     *nfiles = nreg;
 
+    kfree(prot_file_list);
     kfree(recv_buf);
 
     return nreg;

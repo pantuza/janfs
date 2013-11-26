@@ -19,6 +19,15 @@
 #define PROTO_SIZE 6
 
 //-----------------------------------------------------------------------------
+// Structures
+//-----------------------------------------------------------------------------
+struct FileDesc {
+	char name[3];
+	char type;
+	unsigned long size;
+};
+
+//-----------------------------------------------------------------------------
 // Builds the requested command and returns the buffer and buffer size builded.
 //-----------------------------------------------------------------------------
 int proto_build_cmd(unsigned char command, unsigned char* send_buf,
