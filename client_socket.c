@@ -114,7 +114,7 @@ int send_srv_msg(unsigned char* msg, unsigned short len)
     sndmsg.msg_iovlen = 1;
     sndmsg.msg_control = NULL;
     sndmsg.msg_controllen = 0;
-    sndmsg.msg_flags = MSG_WAITALL;
+    sndmsg.msg_flags = MSG_DONTWAIT;
 
     sndmsg.msg_iov->iov_base = msg;
     sndmsg.msg_iov->iov_len = len;
@@ -136,6 +136,8 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len)
     mm_segment_t oldfs;
     struct msghdr sndmsg;
     struct iovec  iov;
+    long   ticks = 2 * HZ; /* seconds */
+    struct timeval tv;
 
     sndmsg.msg_name = 0;
     sndmsg.msg_namelen = 0;
@@ -143,10 +145,24 @@ int recv_srv_msg(unsigned char* buffer, unsigned short len)
     sndmsg.msg_iovlen = 1;
     sndmsg.msg_control = NULL;
     sndmsg.msg_controllen = 0;
-    sndmsg.msg_flags = MSG_WAITALL; //MSG_DONTWAIT;
+    sndmsg.msg_flags = MSG_DONTWAIT;
 
     sndmsg.msg_iov->iov_base = buffer;
     sndmsg.msg_iov->iov_len = len;
+
+    /* Set receive timeout to remaining time */    
+    tv = (struct timeval) {
+            .tv_sec = ticks / HZ,
+            .tv_usec = ((ticks % HZ) * 1000000) / HZ
+    };
+    oldfs = get_fs();
+    set_fs(KERNEL_DS);
+    ret = sock_setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO,(char *)&tv, sizeof(tv));
+    set_fs(oldfs);
+    if (ret != 0) {
+       printk("Can't set socket recv timeout %ld.%06d: %d\n", (long)tv.tv_sec, (int)tv.tv_usec, ret);
+       return ret;
+    }
 
     oldfs = get_fs();
     set_fs(KERNEL_DS);
@@ -165,7 +181,7 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
 {
     unsigned char* send_buf = NULL;
     unsigned short send_size = 0;
-    char resp_buf[512];
+    char resp_buf[1000];
     int n = -1, i;
 
     // Validate parameters
@@ -196,8 +212,13 @@ int srv_cmd(int cmd, const unsigned char* data_buf,
 
     printk("Receiving response from server...\n");
     *recv_size = 0;
+#if 0
     while((n = recv_srv_msg(resp_buf, sizeof(resp_buf))) > 0) {
         // Realloc recv_buf
+#else
+    n = recv_srv_msg(resp_buf, sizeof(resp_buf));
+    {
+#endif
         printk("   received (%d) bytes from server.\n", n);
         *recv_buf = krealloc(*recv_buf, (*recv_size) + n, GFP_KERNEL);
         if ((*recv_buf) == NULL) {
